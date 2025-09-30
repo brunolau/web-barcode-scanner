@@ -18,6 +18,21 @@
             background: #000;
         }
 
+        .loading-overlay {
+            position: fixed;
+            display: flex;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 99999;
+            align-items: center;
+            color: white;
+            justify-content: center;
+            justify-items: center;
+            background: rgba(0, 0, 0, 1);
+        }
+
         .toolbar {
             position: fixed;
             top: 0;
@@ -340,7 +355,7 @@
     <div id="status" class="status"></div>
     <div id="result" class="result"></div>
 
-    <div id="focusControls" class="focus-controls">
+    <div id="focusControls" class="focus-controls" style="display: none;">
         <div class="focus-info">
             <span>Manual Focus Control</span>
             <span class="focus-value" id="focusValue">-</span>
@@ -354,7 +369,7 @@
     </div>
 
     <script type="module">
-        import { WebBarcodeScanner } from './js/index.js';
+        import { WebBarcodeScanner } from './js/index.js?v=6';
 
         // UI Controller
         class ScannerUI {
@@ -491,6 +506,19 @@
                     if (scannerUI) {
                         scannerUI.showStatus(`Error: ${error.message}`, 3000);
                     }
+                },
+                onLoadingStart: () => {
+                    document.getElementById('loadingOverlay')?.remove();
+                    const newElem = document.createElement('div');
+                    newElem.setAttribute('id', 'loadingOverlay');
+                    newElem.setAttribute('class', 'loading-overlay');
+                    newElem.innerHTML = 'Initializing, please wait...';
+                    document.body.appendChild(newElem);
+                },
+                onLoadingEnd: () => {
+                    setTimeout(() => {
+                        document.getElementById('loadingOverlay')?.remove();
+                    }, 500);
                 }
             });
 

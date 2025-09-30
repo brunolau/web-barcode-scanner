@@ -11,6 +11,11 @@ export interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
         min: number;
         step?: number;
     };
+    zoom?: {
+        max: number;
+        min: number;
+        step?: number;
+    };
     focusMode?: string[];
     torch?: boolean;
 }
@@ -122,6 +127,15 @@ export interface WebBarcodeScannerOptions {
 
     /** Supported barcode formats (default: all formats) */
     formats?: BarcodeFormat[];
+
+    /** Starts with initial zoom so that users tend to keep barcode further from the device */
+    useZoomHack?: boolean
+
+    /** Optional callback when init starts */
+    onLoadingStart?: () => void
+
+    /** Optional callback when init ends */
+    onLoadingEnd?: () => void
 }
 
 /**

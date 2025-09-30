@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
     build: {
+        assetsInlineLimit: file => 0 as any,
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),
             name: 'WebBarcodeScanner',

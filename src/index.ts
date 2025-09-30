@@ -76,6 +76,8 @@ class WebBarcodeScanner {
     private readonly container: HTMLElement;
     private readonly onCodeScanned: (code: string, format: string) => void;
     private readonly onError: (error: ScannerError) => void;
+    private readonly onLoadingStart: () => void
+    private readonly onLoadingEnd: () => void
     private readonly debug: boolean;
     private readonly detectorType: BarcodeDetectorType;
     private readonly formats: BarcodeFormat[];
@@ -96,6 +98,7 @@ class WebBarcodeScanner {
     private scanning: boolean = false;
     private focusing: boolean = false;
     private manualFocusMode: boolean = false;
+    private useZoomHack: boolean = true;
     private decoding: boolean = false;
     private lastDecodeTime: number = 0;
     private minDecodeInterval: number = 100;
@@ -112,7 +115,10 @@ class WebBarcodeScanner {
         this.container = options.container;
         this.onCodeScanned = options.onCodeScanned || (() => { });
         this.onError = options.onError || (() => { });
+        this.onLoadingStart = options.onLoadingStart ?? (() => { });
+        this.onLoadingEnd = options.onLoadingEnd ?? (() => { });
         this.debug = options.debug || false;
+        this.useZoomHack = options.useZoomHack ?? true;
         this.detectorType = options.detectorType || BarcodeDetectorType.AUTO;
         this.formats = options.formats || Object.values(BarcodeFormat);
 
@@ -189,13 +195,16 @@ class WebBarcodeScanner {
 
     public async init(): Promise<void> {
         try {
+            this.onLoadingStart();
             await this.initializeDecoder();
             await this.setupCamera();
             this.setupEventListeners();
             this.startScanning();
+            this.onLoadingEnd();
         } catch (err) {
             const error = err as Error;
             this.error('Init error:', error);
+            this.onLoadingEnd();
             this.onError({ type: 'init', message: error.message, error });
             throw error;
         }
@@ -237,8 +246,8 @@ class WebBarcodeScanner {
         };
 
         this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-        this.video.srcObject = this.stream;
         this.track = this.stream.getVideoTracks()[0];
+        this.video.srcObject = this.stream;
 
         await new Promise<void>(resolve => {
             this.video.onloadedmetadata = () => resolve();
@@ -349,6 +358,21 @@ class WebBarcodeScanner {
         this.focusDistanceCapability = hasFocusDistance ? capabilities.focusDistance : null;
 
         try {
+            if (this.useZoomHack && capabilities.zoom) {
+                const minZoom = capabilities.zoom.min ?? 1;
+                const maxZoom = capabilities.zoom.max ?? 1;
+                const targetZoom = Math.max(minZoom, Math.min(maxZoom, 1.4));
+
+                await this.track.applyConstraints({
+                    advanced: [{ zoom: targetZoom } as any]
+                });
+                this.log('Zoom set to:', targetZoom);
+            }
+        } catch (err) {
+            this.warn('Could not set zoom:', err);
+        }
+
+        try {
             if (hasFocusMode && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
                 await this.track.applyConstraints({
                     advanced: [{ focusMode: 'continuous' } as ExtendedMediaTrackConstraintSet]
@@ -410,6 +434,9 @@ class WebBarcodeScanner {
     }
 
     private async handleTapToFocus(e: MouseEvent): Promise<void> {
+        //FIXME: Fix, for now keep without tap
+        return;
+
         if (this.focusing) {
             this.log('Already focusing, skipping...');
             return;
