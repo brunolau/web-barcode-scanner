@@ -1,212 +1,34 @@
-import { scanImageData } from '@undecaf/zbar-wasm';
 
-/**
- * Extended MediaTrackCapabilities with experimental camera features
- * These features are available in Chrome/Android but may not be in all browsers
- */
-interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
-    focusDistance?: {
-        max: number;
-        min: number;
-        step?: number;
-    };
-    focusMode?: string[];
-    torch?: boolean;
-}
 
-/**
- * Extended MediaTrackConstraintSet for advanced camera controls
- */
-interface ExtendedMediaTrackConstraintSet extends MediaTrackConstraintSet {
-    focusDistance?: number;
-    focusMode?: string;
-    torch?: boolean;
-}
+import {
+    WebBarcodeScannerOptions,
+    ScannerError,
+    CameraSwitchResult,
+    FlashToggleResult,
+    FocusDistanceResult,
+    CameraInfo,
+    IWebBarcodeDecoder,
+    BarcodeFormat,
+    BarcodeDetectorType,
+    ExtendedMediaTrackCapabilities,
+    ExtendedMediaTrackConstraintSet,
+    ExtendedMediaTrackSettings
+} from './data';
+import { NativeBarcodeDecoder } from './scanners/native';
+import { ZBarBarcodeDecoder } from './scanners/zbar';
 
-/**
- * Extended MediaTrackSettings with experimental features
- */
-interface ExtendedMediaTrackSettings extends MediaTrackSettings {
-    focusDistance?: number;
-    focusMode?: string;
-    torch?: boolean;
-}
-
-/**
- * Supported barcode formats
- */
-export enum BarcodeFormat {
-    // 1D Formats
-    CODE_128 = 'code_128',
-    CODE_39 = 'code_39',
-    CODE_93 = 'code_93',
-    CODABAR = 'codabar',
-    EAN_8 = 'ean_8',
-    EAN_13 = 'ean_13',
-    ITF = 'itf',
-    UPC_A = 'upc_a',
-    UPC_E = 'upc_e',
-
-    // 2D Formats
-    QR_CODE = 'qr_code',
-    DATA_MATRIX = 'data_matrix',
-    AZTEC = 'aztec',
-    PDF417 = 'pdf417'
-}
-
-/**
- * Barcode detector implementation type
- */
-export enum BarcodeDetectorType {
-    /** Automatically select best available detector */
-    AUTO = 'auto',
-    /** Use native browser BarcodeDetector API */
-    NATIVE = 'native',
-    /** Use ZBar WASM library */
-    ZBAR = 'zbar'
-}
-
-/**
- * Decoded barcode result
- */
-export interface DecodedBarcode {
-    /** The decoded text/data */
-    rawValue: string;
-    /** The barcode format */
-    format: string;
-    /** Optional bounding box */
-    boundingBox?: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-    };
-}
-
-/**
- * Interface for barcode decoder implementations
- */
-export interface IWebBarcodeDecoder {
-    /**
-     * Decodes barcodes from a video element
-     * @param video - The video element to decode from
-     * @returns Array of decoded barcodes
-     */
-    decode(video: HTMLVideoElement): Promise<DecodedBarcode[]>;
-
-    /**
-     * Cleanup resources
-     */
-    destroy(): void;
-}
-
-/**
- * Configuration options for BarcodeScanner initialization
- */
-export interface BarcodeScannerOptions {
-    /** The container element where the scanner will be mounted */
-    container: HTMLElement;
-
-    /** Callback function invoked when a barcode/QR code is successfully scanned */
-    onCodeScanned?: (code: string, format: string) => void;
-
-    /** Callback function invoked when an error occurs */
-    onError?: (error: ScannerError) => void;
-
-    /** Enable debug logging to console (default: false) */
-    debug?: boolean;
-
-    /** Barcode detector type to use (default: AUTO) */
-    detectorType?: BarcodeDetectorType;
-
-    /** Supported barcode formats (default: all formats) */
-    formats?: BarcodeFormat[];
-}
-
-/**
- * Error information returned by the scanner
- */
-export interface ScannerError {
-    /** Type of error that occurred */
-    type: 'init' | 'focus' | 'camera_switch' | 'flash' | 'scan' | 'decoder';
-
-    /** Human-readable error message */
-    message: string;
-
-    /** Original error object if available */
-    error?: Error;
-}
-
-/**
- * Result of camera switch operation
- */
-export interface CameraSwitchResult {
-    /** Whether the camera switch was successful */
-    success: boolean;
-
-    /** Index of the currently selected camera */
-    cameraIndex?: number;
-
-    /** Total number of available cameras */
-    totalCameras?: number;
-
-    /** Label/name of the currently selected camera */
-    cameraLabel?: string;
-
-    /** Error message if switch failed */
-    message?: string;
-}
-
-/**
- * Result of flash toggle operation
- */
-export interface FlashToggleResult {
-    /** Whether the flash toggle was successful */
-    success: boolean;
-
-    /** Current state of the flash (true = on, false = off) */
-    enabled?: boolean;
-
-    /** Error message if toggle failed */
-    message?: string;
-}
-
-/**
- * Result of focus distance adjustment
- */
-export interface FocusDistanceResult {
-    /** Whether the focus distance was successfully set */
-    success: boolean;
-
-    /** The focus distance that was set */
-    distance?: number;
-
-    /** Error message if adjustment failed */
-    message?: string;
-}
-
-/**
- * Information about the current camera
- */
-export interface CameraInfo {
-    /** Label/name of the current camera */
-    cameraLabel: string;
-
-    /** Index of the current camera */
-    cameraIndex: number;
-
-    /** Total number of available cameras */
-    totalCameras: number;
-
-    /** Whether the camera supports manual focus distance control */
-    hasFocusDistance: boolean;
-
-    /** Focus distance range if supported */
-    focusDistanceRange: { min: number; max: number } | null;
-
-    /** Full camera capabilities object */
-    capabilities: ExtendedMediaTrackCapabilities | undefined;
-}
+// Re-export public types and enums
+export {
+    BarcodeFormat,
+    BarcodeDetectorType,
+    type WebBarcodeScannerOptions,
+    type ScannerError,
+    type CameraSwitchResult,
+    type FlashToggleResult,
+    type FocusDistanceResult,
+    type CameraInfo,
+    type DecodedBarcode
+} from './data';
 
 /**
  * Internal camera device information
@@ -214,171 +36,6 @@ export interface CameraInfo {
 interface CameraDevice {
     device: MediaDeviceInfo;
     index: number;
-}
-
-/**
- * Native BarcodeDetector implementation
- */
-class NativeBarcodeDecoder implements IWebBarcodeDecoder {
-    private detector: any; // BarcodeDetector
-    private formats: BarcodeFormat[];
-
-    constructor(formats: BarcodeFormat[]) {
-        this.formats = formats;
-
-        // Check if native BarcodeDetector is available
-        if (typeof (window as any).BarcodeDetector === 'undefined') {
-            throw new Error('Native BarcodeDetector is not supported in this browser');
-        }
-
-        // Map our formats to native format names
-        const nativeFormats = this.mapToNativeFormats(formats);
-        this.detector = new (window as any).BarcodeDetector({ formats: nativeFormats });
-    }
-
-    private mapToNativeFormats(formats: BarcodeFormat[]): string[] {
-        const mapping: { [key in BarcodeFormat]: string } = {
-            [BarcodeFormat.CODE_128]: 'code_128',
-            [BarcodeFormat.CODE_39]: 'code_39',
-            [BarcodeFormat.CODE_93]: 'code_93',
-            [BarcodeFormat.CODABAR]: 'codabar',
-            [BarcodeFormat.EAN_8]: 'ean_8',
-            [BarcodeFormat.EAN_13]: 'ean_13',
-            [BarcodeFormat.ITF]: 'itf',
-            [BarcodeFormat.UPC_A]: 'upc_a',
-            [BarcodeFormat.UPC_E]: 'upc_e',
-            [BarcodeFormat.QR_CODE]: 'qr_code',
-            [BarcodeFormat.DATA_MATRIX]: 'data_matrix',
-            [BarcodeFormat.AZTEC]: 'aztec',
-            [BarcodeFormat.PDF417]: 'pdf417'
-        };
-
-        return formats.map(f => mapping[f]);
-    }
-
-    async decode(video: HTMLVideoElement): Promise<DecodedBarcode[]> {
-        try {
-            const barcodes = await this.detector.detect(video);
-            return barcodes.map((barcode: any) => ({
-                rawValue: barcode.rawValue,
-                format: barcode.format,
-                boundingBox: barcode.boundingBox ? {
-                    x: barcode.boundingBox.x,
-                    y: barcode.boundingBox.y,
-                    width: barcode.boundingBox.width,
-                    height: barcode.boundingBox.height
-                } : undefined
-            }));
-        } catch (error) {
-            return [];
-        }
-    }
-
-    destroy(): void {
-        // Native detector doesn't need cleanup
-    }
-}
-
-/**
- * ZBar WASM implementation using @undecaf/zbar-wasm
- */
-class ZBarBarcodeDecoder implements IWebBarcodeDecoder {
-    private canvas: HTMLCanvasElement;
-    private ctx: CanvasRenderingContext2D;
-    private formats: BarcodeFormat[];
-
-    constructor(formats: BarcodeFormat[]) {
-        this.formats = formats;
-        this.canvas = document.createElement('canvas');
-        const context = this.canvas.getContext('2d');
-        if (!context) {
-            throw new Error('Failed to get 2D context for ZBar decoder');
-        }
-        this.ctx = context;
-    }
-
-    async decode(video: HTMLVideoElement): Promise<DecodedBarcode[]> {
-        try {
-            // Capture frame from video
-            this.canvas.width = video.videoWidth;
-            this.canvas.height = video.videoHeight;
-            this.ctx.drawImage(video, 0, 0);
-
-            const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-
-            // Scan the image using the imported scanImageData function
-            const results = await scanImageData(imageData);
-
-            if (!results || results.length === 0) {
-                return [];
-            }
-
-            // Filter by supported formats and map results
-            return results
-                .filter((result: any) => this.isFormatSupported(result.typeName))
-                .map((result: any) => ({
-                    rawValue: result.decode(),
-                    format: this.mapZBarFormat(result.typeName),
-                    boundingBox: result.points && result.points.length >= 2 ? {
-                        x: Math.min(...result.points.map((p: any) => p.x)),
-                        y: Math.min(...result.points.map((p: any) => p.y)),
-                        width: Math.max(...result.points.map((p: any) => p.x)) - Math.min(...result.points.map((p: any) => p.x)),
-                        height: Math.max(...result.points.map((p: any) => p.y)) - Math.min(...result.points.map((p: any) => p.y))
-                    } : undefined
-                }));
-        } catch (error) {
-            return [];
-        }
-    }
-
-    private isFormatSupported(zbarFormat: string): boolean {
-        const formatMap = this.getZBarFormatMap();
-        const normalizedFormat = zbarFormat.toLowerCase();
-
-        for (const [format, zbarName] of Object.entries(formatMap)) {
-            if (zbarName === normalizedFormat && this.formats.includes(format as BarcodeFormat)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private mapZBarFormat(zbarFormat: string): string {
-        const formatMap = this.getZBarFormatMap();
-        const normalizedFormat = zbarFormat.toLowerCase();
-
-        for (const [format, zbarName] of Object.entries(formatMap)) {
-            if (zbarName === normalizedFormat) {
-                return format;
-            }
-        }
-
-        return zbarFormat;
-    }
-
-    private getZBarFormatMap(): { [key: string]: string } {
-        return {
-            [BarcodeFormat.CODE_128]: 'code-128',
-            [BarcodeFormat.CODE_39]: 'code-39',
-            [BarcodeFormat.CODE_93]: 'code-93',
-            [BarcodeFormat.CODABAR]: 'codabar',
-            [BarcodeFormat.EAN_8]: 'ean-8',
-            [BarcodeFormat.EAN_13]: 'ean-13',
-            [BarcodeFormat.ITF]: 'i2/5',
-            [BarcodeFormat.UPC_A]: 'ean-13', // UPC-A is subset of EAN-13
-            [BarcodeFormat.UPC_E]: 'ean-8', // UPC-E is subset of EAN-8
-            [BarcodeFormat.QR_CODE]: 'qr-code',
-            [BarcodeFormat.DATA_MATRIX]: 'datamatrix',
-            [BarcodeFormat.PDF417]: 'pdf417'
-        };
-    }
-
-    destroy(): void {
-        // Cleanup canvas
-        this.canvas.width = 0;
-        this.canvas.height = 0;
-    }
 }
 
 /**
@@ -396,8 +53,10 @@ class ZBarBarcodeDecoder implements IWebBarcodeDecoder {
  * 
  * @example
  * ```typescript
- * const scanner = new BarcodeScanner({
- *   container: document.getElementById('scanner-container'),
+ * import { WebBarcodeScanner, BarcodeDetectorType, BarcodeFormat } from '@your-package/barcode-scanner';
+ * 
+ * const scanner = new WebBarcodeScanner({
+ *   container: document.getElementById('scanner-container')!,
  *   debug: true,
  *   detectorType: BarcodeDetectorType.AUTO,
  *   formats: [BarcodeFormat.QR_CODE, BarcodeFormat.EAN_13],
@@ -412,7 +71,7 @@ class ZBarBarcodeDecoder implements IWebBarcodeDecoder {
  * await scanner.init();
  * ```
  */
-export class BarcodeScanner {
+export class WebBarcodeScanner {
     // Configuration
     private readonly container: HTMLElement;
     private readonly onCodeScanned: (code: string, format: string) => void;
@@ -439,7 +98,7 @@ export class BarcodeScanner {
     private manualFocusMode: boolean = false;
     private decoding: boolean = false;
     private lastDecodeTime: number = 0;
-    private minDecodeInterval: number = 100; // Minimum ms between decode attempts
+    private minDecodeInterval: number = 100;
 
     // Focus UI Elements
     private focusElements: HTMLElement[] = [];
@@ -449,13 +108,7 @@ export class BarcodeScanner {
     private currentCameraIndex: number = 0;
     private focusDistanceCapability: ExtendedMediaTrackCapabilities['focusDistance'] | null = null;
 
-    /**
-     * Creates a new BarcodeScanner instance
-     * 
-     * @param options - Configuration options for the scanner
-     * @throws {Error} If container element is not provided
-     */
-    constructor(options: BarcodeScannerOptions) {
+    constructor(options: WebBarcodeScannerOptions) {
         this.container = options.container;
         this.onCodeScanned = options.onCodeScanned || (() => { });
         this.onError = options.onError || (() => { });
@@ -467,21 +120,17 @@ export class BarcodeScanner {
             throw new Error('Container element is required');
         }
 
-        // Create video element
         this.video = document.createElement('video');
         this.video.className = 'barcode-scanner-video';
         this.video.setAttribute('playsinline', '');
         this.video.setAttribute('autoplay', '');
 
-        // Create canvas element
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'barcode-scanner-canvas';
 
-        // Append elements to container
         this.container.appendChild(this.video);
         this.container.appendChild(this.canvas);
 
-        // Get canvas context
         const context = this.canvas.getContext('2d', { willReadFrequently: true });
         if (!context) {
             throw new Error('Failed to get 2D context from canvas');
@@ -489,43 +138,27 @@ export class BarcodeScanner {
         this.ctx = context;
     }
 
-    /**
-     * Logs debug messages to console if debug mode is enabled
-     * @param args - Arguments to log
-     */
     private log(...args: any[]): void {
         if (this.debug) {
-            console.log('[BarcodeScanner]', ...args);
+            console.log('[WebBarcodeScanner]', ...args);
         }
     }
 
-    /**
-     * Logs warning messages to console if debug mode is enabled
-     * @param args - Arguments to log
-     */
     private warn(...args: any[]): void {
         if (this.debug) {
-            console.warn('[BarcodeScanner]', ...args);
+            console.warn('[WebBarcodeScanner]', ...args);
         }
     }
 
-    /**
-     * Logs error messages to console if debug mode is enabled
-     * @param args - Arguments to log
-     */
     private error(...args: any[]): void {
         if (this.debug) {
-            console.error('[BarcodeScanner]', ...args);
+            console.error('[WebBarcodeScanner]', ...args);
         }
     }
 
-    /**
-     * Initializes the barcode decoder based on the selected type
-     */
     private async initializeDecoder(): Promise<void> {
         let detectorToUse = this.detectorType;
 
-        // Auto-select best available decoder
         if (detectorToUse === BarcodeDetectorType.AUTO) {
             if (typeof (window as any).BarcodeDetector !== 'undefined') {
                 detectorToUse = BarcodeDetectorType.NATIVE;
@@ -537,10 +170,10 @@ export class BarcodeScanner {
         }
 
         try {
-            if (detectorToUse === BarcodeDetectorType.NATIVE) {
+            if (detectorToUse === 'native') {
                 this.decoder = new NativeBarcodeDecoder(this.formats);
                 this.log('Initialized Native BarcodeDetector');
-            } else if (detectorToUse === BarcodeDetectorType.ZBAR) {
+            } else if (detectorToUse === 'zbar') {
                 this.decoder = new ZBarBarcodeDecoder(this.formats);
                 this.log('Initialized ZBar decoder');
             } else {
@@ -554,20 +187,6 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Initializes the barcode scanner
-     * 
-     * This method:
-     * 1. Initializes the barcode decoder
-     * 2. Requests camera permissions
-     * 3. Enumerates available cameras
-     * 4. Selects the best camera (back camera with best focus capabilities)
-     * 5. Sets up the video stream
-     * 6. Configures continuous autofocus
-     * 7. Starts barcode scanning
-     * 
-     * @throws {Error} If camera permission is denied or initialization fails
-     */
     public async init(): Promise<void> {
         try {
             await this.initializeDecoder();
@@ -582,21 +201,7 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Sets up the camera by requesting permissions and selecting the best camera
-     * 
-     * On iOS, camera labels are only available after permissions are granted,
-     * so we first request access, then enumerate devices.
-     * 
-     * Camera selection priority:
-     * 1. Back camera with largest focus distance range (best for scanning)
-     * 2. Back "ultra wide" camera (iOS)
-     * 3. Back "wide" camera (iOS)
-     * 4. First back camera found
-     * 5. Last camera in list (usually back camera)
-     */
     private async setupCamera(): Promise<void> {
-        // Request camera permission first (required for iOS to get proper labels)
         let permissionStream: MediaStream | null = null;
         try {
             permissionStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -607,18 +212,15 @@ export class BarcodeScanner {
             throw new Error('Camera permission denied');
         }
 
-        // Enumerate devices - iOS will now return proper labels
         const devices = await navigator.mediaDevices.enumerateDevices();
         this.availableCameras = devices.filter(d => d.kind === 'videoinput');
 
         this.log('Available cameras:', this.availableCameras.map((d, i) => `[${i}] ${d.label}`));
 
-        // Stop permission stream
         if (permissionStream) {
             permissionStream.getTracks().forEach(track => track.stop());
         }
 
-        // Auto-select best camera on first load
         if (this.currentCameraIndex === 0) {
             await this.selectBestCamera();
         }
@@ -626,7 +228,6 @@ export class BarcodeScanner {
         const selectedDevice = this.availableCameras[this.currentCameraIndex];
         this.log(`Using camera [${this.currentCameraIndex}]:`, selectedDevice?.label);
 
-        // Open the selected camera
         const constraints: MediaStreamConstraints = {
             video: {
                 deviceId: selectedDevice ? { exact: selectedDevice.deviceId } : undefined,
@@ -639,7 +240,6 @@ export class BarcodeScanner {
         this.video.srcObject = this.stream;
         this.track = this.stream.getVideoTracks()[0];
 
-        // Wait for video to be ready
         await new Promise<void>(resolve => {
             this.video.onloadedmetadata = () => resolve();
         });
@@ -647,15 +247,6 @@ export class BarcodeScanner {
         await this.setupContinuousFocus();
     }
 
-    /**
-     * Selects the best camera from available cameras
-     * 
-     * Priority:
-     * 1. Back camera with best focus distance range
-     * 2. iOS-specific: Ultra wide or wide camera
-     * 3. First back camera
-     * 4. Last camera (fallback)
-     */
     private async selectBestCamera(): Promise<void> {
         const backCameras: CameraDevice[] = this.availableCameras
             .map((d, index) => ({ device: d, index }))
@@ -678,7 +269,6 @@ export class BarcodeScanner {
         let bestCamera: number | null = null;
         let bestFocusRange = 0;
 
-        // Test each back camera for focus capabilities
         for (const { device, index } of backCameras) {
             try {
                 const testStream = await navigator.mediaDevices.getUserMedia({
@@ -709,7 +299,6 @@ export class BarcodeScanner {
             }
         }
 
-        // If no camera has focus distance support, use iOS camera name heuristics
         if (bestFocusRange === 0) {
             this.log('No camera with focus distance support found, trying iOS camera selection');
 
@@ -743,12 +332,6 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Sets up continuous autofocus mode if supported by the camera
-     * 
-     * Also sets the focus distance to minimum (optimized for close-range scanning)
-     * if focus distance control is available.
-     */
     private async setupContinuousFocus(): Promise<void> {
         if (!this.track) return;
 
@@ -786,19 +369,10 @@ export class BarcodeScanner {
         this.log('Current settings:', this.track.getSettings());
     }
 
-    /**
-     * Sets up event listeners for tap-to-focus
-     */
     private setupEventListeners(): void {
         this.container.addEventListener('click', (e) => this.handleTapToFocus(e));
     }
 
-    /**
-     * Creates visual focus indicator at the tapped position
-     * 
-     * @param x - X coordinate relative to container
-     * @param y - Y coordinate relative to container
-     */
     private createFocusIndicator(x: number, y: number): void {
         this.clearFocusIndicators();
 
@@ -830,25 +404,11 @@ export class BarcodeScanner {
         }, 2000);
     }
 
-    /**
-     * Removes all focus indicator elements from the DOM
-     */
     private clearFocusIndicators(): void {
         this.focusElements.forEach(el => el.remove());
         this.focusElements = [];
     }
 
-    /**
-     * Handles tap-to-focus gesture
-     * 
-     * When the user taps on the video, this method:
-     * 1. Shows a visual focus indicator
-     * 2. Searches for the best focus distance using contrast detection
-     * 3. Applies the optimal focus
-     * 4. Returns to continuous autofocus after a delay
-     * 
-     * @param e - Click event
-     */
     private async handleTapToFocus(e: MouseEvent): Promise<void> {
         if (this.focusing) {
             this.log('Already focusing, skipping...');
@@ -870,20 +430,6 @@ export class BarcodeScanner {
         this.focusing = false;
     }
 
-    /**
-     * Searches for the optimal focus distance by testing multiple distances
-     * and measuring image contrast at the tapped location
-     * 
-     * The algorithm:
-     * 1. Tests focus distances from min to max
-     * 2. For each distance, captures a small area around the tap point
-     * 3. Calculates image contrast (standard deviation of pixel brightness)
-     * 4. Selects the distance with highest contrast (sharpest image)
-     * 
-     * @param tapX - X coordinate of tap
-     * @param tapY - Y coordinate of tap
-     * @param videoRect - Bounding rectangle of video element
-     */
     private async searchBestFocus(tapX: number, tapY: number, videoRect: DOMRect): Promise<void> {
         if (!this.track) return;
 
@@ -953,7 +499,6 @@ export class BarcodeScanner {
                 } as ExtendedMediaTrackConstraintSet]
             });
 
-            // Return to continuous focus after delay
             setTimeout(async () => {
                 if (this.track && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
                     try {
@@ -974,18 +519,6 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Calculates image contrast (sharpness) at a specific area
-     * 
-     * Uses standard deviation of pixel brightness as a measure of contrast.
-     * Higher values indicate sharper, more focused images.
-     * 
-     * @param centerX - X coordinate of center point
-     * @param centerY - Y coordinate of center point
-     * @param videoRect - Bounding rectangle of video element
-     * @param areaSize - Size of the area to analyze (in pixels)
-     * @returns Standard deviation of pixel brightness (contrast measure)
-     */
     private calculateContrast(centerX: number, centerY: number, videoRect: DOMRect, areaSize: number): number {
         const scaleX = this.video.videoWidth / videoRect.width;
         const scaleY = this.video.videoHeight / videoRect.height;
@@ -1022,11 +555,6 @@ export class BarcodeScanner {
         return stdDev;
     }
 
-    /**
-     * Fallback focus method when manual focus distance is not supported
-     * 
-     * Attempts to trigger single-shot autofocus if available
-     */
     private async fallbackFocus(): Promise<void> {
         if (!this.track) return;
 
@@ -1053,13 +581,6 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Switches to the next available camera
-     * 
-     * Cycles through all available cameras. The stream is restarted with the new camera.
-     * 
-     * @returns Result object containing success status and camera information
-     */
     public async switchCamera(): Promise<CameraSwitchResult> {
         if (this.availableCameras.length <= 1) {
             this.log('Only one camera available');
@@ -1092,11 +613,6 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Toggles the camera flash/torch on or off
-     * 
-     * @returns Result object containing success status and flash state
-     */
     public async toggleFlash(): Promise<FlashToggleResult> {
         if (!this.track) {
             return { success: false, message: 'Camera not initialized' };
@@ -1127,11 +643,6 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Gets information about the current camera
-     * 
-     * @returns Camera information object
-     */
     public getCameraInfo(): CameraInfo {
         const capabilities = this.track?.getCapabilities() as ExtendedMediaTrackCapabilities | undefined;
         const minDist = capabilities?.focusDistance?.min ?? null;
@@ -1148,15 +659,6 @@ export class BarcodeScanner {
         };
     }
 
-    /**
-     * Sets the manual focus distance
-     * 
-     * Switches to manual focus mode and sets the focus to the specified distance.
-     * The distance should be within the range returned by getCameraInfo().
-     * 
-     * @param distance - Focus distance value
-     * @returns Result object containing success status
-     */
     public async setFocusDistance(distance: number): Promise<FocusDistanceResult> {
         if (!this.focusDistanceCapability) {
             return { success: false, message: 'Focus distance not supported' };
@@ -1191,24 +693,11 @@ export class BarcodeScanner {
         }
     }
 
-    /**
-     * Starts the barcode scanning loop
-     * 
-     * Continuously attempts to decode barcodes/QR codes from the video stream.
-     * Calls the onCodeScanned callback when a code is detected.
-     * Uses requestAnimationFrame for efficient, non-blocking scanning.
-     */
     public startScanning(): void {
         this.scanning = true;
         this.scan();
     }
 
-    /**
-     * Internal scanning loop with throttling to prevent overload
-     * 
-     * Uses requestAnimationFrame for smooth performance and implements
-     * a minimum interval between decode attempts to prevent CPU overload.
-     */
     private scan(): void {
         if (!this.scanning) return;
 
@@ -1216,13 +705,11 @@ export class BarcodeScanner {
             const now = Date.now();
             const timeSinceLastDecode = now - this.lastDecodeTime;
 
-            // Throttle decode attempts
             if (timeSinceLastDecode < this.minDecodeInterval) {
                 this.scan();
                 return;
             }
 
-            // Skip if already decoding
             if (this.decoding) {
                 this.scan();
                 return;
@@ -1240,7 +727,6 @@ export class BarcodeScanner {
                         this.log('Barcode scanned:', barcode.rawValue, 'Format:', barcode.format);
                         this.onCodeScanned(barcode.rawValue, barcode.format);
 
-                        // Pause briefly after successful scan
                         await new Promise(resolve => setTimeout(resolve, 1000));
                     }
                 }
@@ -1255,19 +741,6 @@ export class BarcodeScanner {
         });
     }
 
-    /**
-     * Stops the scanner and releases all resources
-     * 
-     * This method:
-     * 1. Stops the scanning loop
-     * 2. Clears focus indicators
-     * 3. Destroys the barcode decoder
-     * 4. Stops and releases the camera stream
-     * 5. Cleans up video element
-     * 
-     * Always call this method when done using the scanner to prevent
-     * resource leaks and ensure the camera is properly released.
-     */
     public stop(): void {
         this.log('Stopping scanner...');
         this.scanning = false;
@@ -1297,67 +770,30 @@ export class BarcodeScanner {
         this.log('Scanner stopped');
     }
 
-    /**
-     * Gets the current scanning state
-     * 
-     * @returns True if scanner is currently scanning for barcodes
-     */
     public isScanning(): boolean {
         return this.scanning;
     }
 
-    /**
-     * Gets the current focusing state
-     * 
-     * @returns True if scanner is currently performing tap-to-focus
-     */
     public isFocusing(): boolean {
         return this.focusing;
     }
 
-    /**
-     * Gets the video element
-     * 
-     * Useful for applying custom styles or accessing video properties
-     * 
-     * @returns The video element displaying the camera feed
-     */
     public getVideoElement(): HTMLVideoElement {
         return this.video;
     }
 
-    /**
-     * Gets the canvas element
-     * 
-     * @returns The canvas element used for image processing
-     */
     public getCanvasElement(): HTMLCanvasElement {
         return this.canvas;
     }
 
-    /**
-     * Gets the current media stream
-     * 
-     * @returns The active media stream or null if not initialized
-     */
     public getStream(): MediaStream | null {
         return this.stream;
     }
 
-    /**
-     * Gets the current media track
-     * 
-     * @returns The active video track or null if not initialized
-     */
     public getTrack(): MediaStreamTrack | null {
         return this.track;
     }
 
-    /**
-     * Gets the currently used decoder type
-     * 
-     * @returns The decoder type being used
-     */
     public getDecoderType(): string {
         if (!this.decoder) return 'none';
         if (this.decoder instanceof NativeBarcodeDecoder) return 'native';
@@ -1365,11 +801,6 @@ export class BarcodeScanner {
         return 'unknown';
     }
 
-    /**
-     * Gets the supported barcode formats
-     * 
-     * @returns Array of supported barcode formats
-     */
     public getSupportedFormats(): BarcodeFormat[] {
         return [...this.formats];
     }
