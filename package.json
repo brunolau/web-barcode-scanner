@@ -1,0 +1,90 @@
+{
+  "name": "inviton-clientside-api",
+  "version": "1.2.9",
+  "description": "Inviton's clietnside API embedded as a NPM package",
+  "main": "./dist/index.js",
+  "files": [
+    "dist/**/*"
+  ],
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "node ./cli/build-lib.js",
+    "build-before": "tsup src/index.ts --format cjs,esm --dts --minify --tsconfig ./tsconfig.json",
+    "clean": "rm -rf ./lib/",
+    "cm": "cz",
+    "test:watch": "jest --watch",
+    "test": "jest --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inviton/clientside-api-npm.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "inviton.eu",
+    "email": "inviton@users.noreply.github.com",
+    "url": "https://www.inviton.eu"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/inviton/clientside-api-npm/issues"
+  },
+  "homepage": "https://github.com/inviton/clientside-api-npm",
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "tsup": "^8.3.6",
+    "typescript": "^5.6.3"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits",
+          "releaseRules": [
+            {
+              "type": "build",
+              "scope": "deps",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "conventionalcommits",
+          "presetConfig": {
+            "types": [
+              {
+                "type": "feat",
+                "section": "Features"
+              },
+              {
+                "type": "fix",
+                "section": "Bug Fixes"
+              },
+              {
+                "type": "build",
+                "section": "Dependencies and Other Build Updates",
+                "hidden": false
+              }
+            ]
+          }
+        }
+      ],
+      "@semantic-release/npm",
+      "@semantic-release/github"
+    ]
+  }
+}
