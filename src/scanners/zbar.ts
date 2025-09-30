@@ -13,7 +13,7 @@ export class ZBarBarcodeDecoder implements IWebBarcodeDecoder {
     constructor(formats: BarcodeFormat[]) {
         this.formats = formats;
         this.canvas = document.createElement('canvas');
-        const context = this.canvas.getContext('2d');
+        const context = this.canvas.getContext('2d', { willReadFrequently: true });
         if (!context) {
             throw new Error('Failed to get 2D context for ZBar decoder');
         }
@@ -82,18 +82,18 @@ export class ZBarBarcodeDecoder implements IWebBarcodeDecoder {
 
     private getZBarFormatMap(): { [key: string]: string } {
         return {
-            [BarcodeFormat.CODE_128]: 'code-128',
-            [BarcodeFormat.CODE_39]: 'code-39',
-            [BarcodeFormat.CODE_93]: 'code-93',
-            [BarcodeFormat.CODABAR]: 'codabar',
-            [BarcodeFormat.EAN_8]: 'ean-8',
-            [BarcodeFormat.EAN_13]: 'ean-13',
-            [BarcodeFormat.ITF]: 'i2/5',
-            [BarcodeFormat.UPC_A]: 'ean-13', // UPC-A is subset of EAN-13
-            [BarcodeFormat.UPC_E]: 'ean-8', // UPC-E is subset of EAN-8
-            [BarcodeFormat.QR_CODE]: 'qr-code',
-            [BarcodeFormat.DATA_MATRIX]: 'datamatrix',
-            [BarcodeFormat.PDF417]: 'pdf417'
+            [BarcodeFormat.CODE_128]: 'zbar_code128',
+            [BarcodeFormat.CODE_39]: 'zbar_code39',
+            [BarcodeFormat.CODE_93]: 'zbar_code93',
+            [BarcodeFormat.CODABAR]: 'zbar_codabar',
+            [BarcodeFormat.EAN_8]: 'zbar_ean8',
+            [BarcodeFormat.EAN_13]: 'zbar_ean13',
+            [BarcodeFormat.ITF]: 'zbar_i25',
+            [BarcodeFormat.UPC_A]: 'zbar_upca',
+            [BarcodeFormat.UPC_E]: 'zbar_upce',
+            [BarcodeFormat.QR_CODE]: 'zbar_qrcode',
+            [BarcodeFormat.DATA_MATRIX]: 'zbar_none',
+            [BarcodeFormat.PDF417]: 'zbar_pdf417'
         };
     }
 

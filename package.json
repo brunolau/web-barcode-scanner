@@ -1,91 +1,32 @@
 {
-  "name": "inviton-clientside-api",
-  "version": "1.2.9",
-  "description": "Inviton's clietnside API embedded as a NPM package",
-  "main": "./dist/index.js",
-  "files": [
-    "dist/**/*"
-  ],
+  "name": "your-package-name",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "require": "./dist/index.js",
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "node ./cli/build-lib.js",
-    "build-before": "tsup src/index.ts --format cjs,esm --dts --minify --tsconfig ./tsconfig.json",
-    "clean": "rm -rf ./lib/",
-    "cm": "cz",
-    "test:watch": "jest --watch",
-    "test": "jest --coverage",
-    "typecheck": "tsc --noEmit"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "build:lib": "vite build && npm run copy:demo",
+    "copy:demo": "node cli/copy-to-example.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/inviton/clientside-api-npm.git"
-  },
-  "license": "MIT",
-  "author": {
-    "name": "inviton.eu",
-    "email": "inviton@users.noreply.github.com",
-    "url": "https://www.inviton.eu"
-  },
-  "keywords": [],
-  "bugs": {
-    "url": "https://github.com/inviton/clientside-api-npm/issues"
-  },
-  "homepage": "https://github.com/inviton/clientside-api-npm",
   "devDependencies": {
-    "@types/node": "^22.7.5",
-    "tsup": "^8.3.6",
-    "typescript": "^5.6.3"
-  },
-  "release": {
-    "branches": [
-      "main"
-    ],
-    "plugins": [
-      [
-        "@semantic-release/commit-analyzer",
-        {
-          "preset": "conventionalcommits",
-          "releaseRules": [
-            {
-              "type": "build",
-              "scope": "deps",
-              "release": "patch"
-            }
-          ]
-        }
-      ],
-      [
-        "@semantic-release/release-notes-generator",
-        {
-          "preset": "conventionalcommits",
-          "presetConfig": {
-            "types": [
-              {
-                "type": "feat",
-                "section": "Features"
-              },
-              {
-                "type": "fix",
-                "section": "Bug Fixes"
-              },
-              {
-                "type": "build",
-                "section": "Dependencies and Other Build Updates",
-                "hidden": false
-              }
-            ]
-          }
-        }
-      ],
-      "@semantic-release/npm",
-      "@semantic-release/github"
-    ]
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.0.0",
+    "vite-plugin-dts": "^3.0.0"
   },
   "dependencies": {
     "@undecaf/zbar-wasm": "^0.11.0"

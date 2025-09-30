@@ -71,7 +71,7 @@ interface CameraDevice {
  * await scanner.init();
  * ```
  */
-export class WebBarcodeScanner {
+class WebBarcodeScanner {
     // Configuration
     private readonly container: HTMLElement;
     private readonly onCodeScanned: (code: string, format: string) => void;
@@ -805,3 +805,5 @@ export class WebBarcodeScanner {
         return [...this.formats];
     }
 }
+
+export { WebBarcodeScanner };
