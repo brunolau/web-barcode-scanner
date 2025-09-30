@@ -9,7 +9,11 @@
     "moduleResolution": "node",
     "preserveConstEnums": false,
     "isolatedModules": false,
-    "sourceMap": true
+    "sourceMap": true,
+    "lib": [
+      "DOM",
+      "ES2017"
+    ]
   },
   "include": [
     "src/**/*"
