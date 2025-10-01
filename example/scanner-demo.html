@@ -369,7 +369,7 @@
     </div>
 
     <script type="module">
-        import { WebBarcodeScanner } from './js/index.js?v=17';
+        import { WebBarcodeScanner } from './js/index.js';
 
         // UI Controller
         class ScannerUI {
@@ -493,7 +493,8 @@
                     'ean_13',
                     'ean_8',
                     'code_128',
-                    'code_39'
+                    'code_39',
+                    'itf'
                 ],
                 onCodeScanned: (code, format) => {
                     console.log('Code scanned:', code, 'Format:', format);

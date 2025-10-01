@@ -1,10 +1,25 @@
 {
-  "name": "your-package-name",
-  "version": "1.0.0",
+  "name": "web-barcode-scanner",
+  "version": "0.1.1",
+  "description": "Browser-based library that aims to help overcome common pitfalls with html5-based barcode scanning.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brunolau/web-barcode-scanner.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "brunolau",
+    "email": "brunolau@users.noreply.github.com"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/brunolau/web-barcode-scanner/issues"
+  },
+  "homepage": "https://github.com/brunolau/web-barcode-scanner",
   "exports": {
     ".": {
       "import": "./dist/index.js",
