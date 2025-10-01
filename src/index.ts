@@ -257,21 +257,23 @@ class WebBarcodeScanner {
     }
 
     private async selectBestCamera(): Promise<void> {
-        const backCameras: CameraDevice[] = this.availableCameras
-            .map((d, index) => ({ device: d, index }))
-            .filter(({ device }) =>
-                device.label.toLowerCase().includes('back') ||
-                device.label.toLowerCase().includes('rear') ||
-                device.label.toLowerCase().includes('environment')
-            );
+        const availableMap = this.availableCameras.map((d, index) => ({ device: d, index }));
+        let backCameras: CameraDevice[] = availableMap.filter(({ device }) =>
+            device.label.toLowerCase().includes('back') ||
+            device.label.toLowerCase().includes('rear') ||
+            device.label.toLowerCase().includes('environment')
+        );
 
         this.log('Found back cameras:', backCameras.map(c => `[${c.index}] ${c.device.label}`));
 
         if (backCameras.length === 0) {
-            if (this.availableCameras.length > 0) {
-                this.currentCameraIndex = this.availableCameras.length - 1;
-                this.log('No back camera found, using last camera');
-            }
+            backCameras = availableMap;
+        }
+
+        //Thisone works best on iPhones, try to find it directly
+        const dualWideCam = backCameras.find(p => p.device.label?.toLowerCase().split(' ').join('').includes('backdualwidecamera'));
+        if (dualWideCam != null) {
+            this.currentCameraIndex = dualWideCam.index;
             return;
         }
 
@@ -290,8 +292,13 @@ class WebBarcodeScanner {
                 testTrack.stop();
                 testStream.getTracks().forEach(track => track.stop());
 
+                const isBackCam = capabilities.facingMode?.includes('environment');
+                if (!isBackCam) {
+                    continue;
+                }
+
                 const minDist = capabilities.focusDistance?.min ?? null;
-                const maxDist = capabilities.focusDistance?.max ?? null;
+                const maxDist = capabilities.focusDistance?.max ?? (minDist != null ? 1 : null); //fallback for iPhones, we mostly need the "minDist"
 
                 const focusRange = (minDist !== null && maxDist !== null)
                     ? maxDist - minDist
@@ -308,7 +315,7 @@ class WebBarcodeScanner {
             }
         }
 
-        if (bestFocusRange === 0) {
+        if (bestCamera == null && bestFocusRange === 0) {
             this.log('No camera with focus distance support found, trying iOS camera selection');
 
             const ultraWideCamera = backCameras.find(({ device }) =>
@@ -350,7 +357,7 @@ class WebBarcodeScanner {
         const hasFocusMode = capabilities.focusMode && capabilities.focusMode.length > 0;
         const minDist = capabilities.focusDistance?.min ?? null;
         const maxDist = capabilities.focusDistance?.max ?? null;
-        const hasFocusDistance = minDist !== null && maxDist !== null;
+        const hasFocusDistance = minDist !== null;
 
         this.log('Focus Mode support:', hasFocusMode ? capabilities.focusMode : 'None');
         this.log('Focus Distance support:', hasFocusDistance ? { min: minDist, max: maxDist } : 'None');
@@ -380,7 +387,7 @@ class WebBarcodeScanner {
                 this.log('Continuous focus enabled');
             }
 
-            if (hasFocusDistance && minDist !== null) {
+            if (minDist !== null) {
                 await this.track.applyConstraints({
                     advanced: [{ focusDistance: minDist } as ExtendedMediaTrackConstraintSet]
                 });
