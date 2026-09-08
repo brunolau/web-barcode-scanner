@@ -1,10 +1,45 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import type { Plugin } from 'vite';
+
+function emitZbarWasm(): Plugin {
+    return {
+        name: 'emit-zbar-wasm',
+        enforce: 'pre',
+        transform(code, id) {
+            const cleanId = id.split('?')[0];
+            if (!cleanId.includes('@undecaf/zbar-wasm') || !/\.m?js$/.test(cleanId)) {
+                return null;
+            }
+            if (!code.includes('zbar.wasm')) {
+                return null;
+            }
+
+            const wasmPath = resolve(dirname(cleanId), 'zbar.wasm');
+            if (!existsSync(wasmPath)) {
+                return null;
+            }
+
+            const referenceId = this.emitFile({
+                type: 'asset',
+                fileName: 'wbs-pf-zbar.wasm',
+                source: readFileSync(wasmPath),
+            });
+
+            const rewritten = code.replace(
+                /new URL\(\s*["']zbar\.wasm["']\s*,\s*import\.meta\.url\s*\)/g,
+                `new URL(import.meta.ROLLUP_FILE_URL_${referenceId}, import.meta.url)`
+            );
+
+            return { code: rewritten, map: null };
+        }
+    };
+}
 
 export default defineConfig({
     build: {
-        assetsInlineLimit: file => 0 as any,
         lib: {
             entry: resolve(__dirname, 'src/index.ts'),
             name: 'WebBarcodeScanner',
@@ -12,14 +47,17 @@ export default defineConfig({
             fileName: (format) => `index.${format === 'es' ? 'js' : 'cjs'}`
         },
         rollupOptions: {
-            // No externals - bundle everything for browser use
-            external: []
+            external: [],
+            output: {
+                assetFileNames: '[name][extname]'
+            }
         }
     },
     plugins: [
+        emitZbarWasm(),
         dts({
             include: ['src/**/*.ts'],
-            exclude: ['src/scanners/**/*.ts'], // Exclude internal scanners from .d.ts
+            exclude: ['src/scanners/**/*.ts'],
             insertTypesEntry: true
         })
     ]

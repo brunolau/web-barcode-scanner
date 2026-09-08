@@ -131,6 +131,23 @@ export interface WebBarcodeScannerOptions {
     /** Starts with initial zoom so that users tend to keep barcode further from the device */
     useZoomHack?: boolean
 
+    /**
+     * Cache the expensive one-time setup work across scanner instances (default: false).
+     *
+     * With this on, the module remembers (page scope):
+     * - the selected camera device — every subsequent init() skips the permission-probe
+     *   getUserMedia, the device enumeration and the per-device capability probes, and opens
+     *   the remembered camera exactly once, and
+     * - the barcode decoder instance — stop() no longer destroys it.
+     *
+     * Built for UIs that construct a fresh scanner every time a surface opens (a modal, a
+     * check-in screen) instead of keeping one alive: the first init() pays the full
+     * discovery cost, every later one costs a single getUserMedia call. The camera cache is
+     * dropped automatically when the remembered device fails to open (unplugged, or the
+     * permission was revoked), and the full setup path runs again.
+     */
+    cache?: boolean;
+
     /** Optional callback when init starts */
     onLoadingStart?: () => void
 

@@ -39,6 +39,21 @@ interface CameraDevice {
 }
 
 /**
+ * Module-level caches backing the `cache: true` option. Scanner instances are cheap and
+ * disposable by design (stop() tears down everything the instance owns); these slots are
+ * what survives between them, for the lifetime of the page. Both are only ever written
+ * under the `cache` option, so default behaviour is byte-for-byte the pre-cache path.
+ */
+const cachedCameraSelection: { deviceId: string | null; cameras: MediaDeviceInfo[] } = {
+    deviceId: null,
+    cameras: [],
+};
+const cachedDecoderSlot: { key: string | null; decoder: IWebBarcodeDecoder | null } = {
+    key: null,
+    decoder: null,
+};
+
+/**
  * Advanced barcode scanner with tap-to-focus, camera selection, and flash control.
  * 
  * This class provides a complete barcode/QR code scanning solution with advanced
@@ -81,6 +96,7 @@ class WebBarcodeScanner {
     private readonly debug: boolean;
     private readonly detectorType: BarcodeDetectorType;
     private readonly formats: BarcodeFormat[];
+    private readonly cache: boolean;
 
     // DOM Elements
     private video: HTMLVideoElement;
@@ -121,6 +137,7 @@ class WebBarcodeScanner {
         this.useZoomHack = options.useZoomHack ?? true;
         this.detectorType = options.detectorType || BarcodeDetectorType.AUTO;
         this.formats = options.formats || Object.values(BarcodeFormat);
+        this.cache = options.cache || false;
 
         if (!this.container) {
             throw new Error('Container element is required');
@@ -175,6 +192,14 @@ class WebBarcodeScanner {
             }
         }
 
+        const decoderCacheKey = `${String(detectorToUse)}:${[...this.formats].sort().join(',')}`;
+
+        if (this.cache && cachedDecoderSlot.key === decoderCacheKey && cachedDecoderSlot.decoder != null) {
+            this.decoder = cachedDecoderSlot.decoder;
+            this.log('Reusing cached decoder');
+            return;
+        }
+
         try {
             if (detectorToUse === 'native') {
                 this.decoder = new NativeBarcodeDecoder(this.formats);
@@ -184,6 +209,11 @@ class WebBarcodeScanner {
                 this.log('Initialized ZBar decoder');
             } else {
                 throw new Error(`Unknown detector type: ${detectorToUse}`);
+            }
+
+            if (this.cache) {
+                cachedDecoderSlot.key = decoderCacheKey;
+                cachedDecoderSlot.decoder = this.decoder;
             }
         } catch (err) {
             const error = err as Error;
@@ -211,6 +241,24 @@ class WebBarcodeScanner {
     }
 
     private async setupCamera(): Promise<void> {
+        // Cached fast path: the remembered device opens with ONE getUserMedia call — no
+        // permission probe, no enumeration, no per-device capability probes. On any failure
+        // (device unplugged, permission revoked) the cache is dropped and the full discovery
+        // path below runs exactly as it would have without `cache`.
+        if (this.cache && cachedCameraSelection.deviceId) {
+            try {
+                await this.openCamera(cachedCameraSelection.deviceId);
+                this.availableCameras = cachedCameraSelection.cameras;
+                this.currentCameraIndex = Math.max(0, this.availableCameras.findIndex(d => d.deviceId === cachedCameraSelection.deviceId));
+                this.log('Using cached camera selection:', cachedCameraSelection.deviceId);
+                return;
+            } catch (err) {
+                this.warn('Cached camera failed to open, falling back to full setup:', err);
+                cachedCameraSelection.deviceId = null;
+                cachedCameraSelection.cameras = [];
+            }
+        }
+
         let permissionStream: MediaStream | null = null;
         try {
             permissionStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -237,9 +285,22 @@ class WebBarcodeScanner {
         const selectedDevice = this.availableCameras[this.currentCameraIndex];
         this.log(`Using camera [${this.currentCameraIndex}]:`, selectedDevice?.label);
 
+        await this.openCamera(selectedDevice?.deviceId);
+
+        if (this.cache && selectedDevice) {
+            cachedCameraSelection.deviceId = selectedDevice.deviceId;
+            cachedCameraSelection.cameras = this.availableCameras;
+        }
+    }
+
+    /**
+     * Opens one camera by deviceId and attaches the stream — the shared tail of both the
+     * cached and the full setup path.
+     */
+    private async openCamera(deviceId: string | undefined): Promise<void> {
         const constraints: MediaStreamConstraints = {
             video: {
-                deviceId: selectedDevice ? { exact: selectedDevice.deviceId } : undefined,
+                deviceId: deviceId ? { exact: deviceId } : undefined,
                 width: { ideal: 1280 },
                 height: { ideal: 720 }
             }
@@ -782,7 +843,13 @@ class WebBarcodeScanner {
         this.clearFocusIndicators();
 
         if (this.decoder) {
-            this.decoder.destroy();
+            // A cached decoder belongs to the module cache, not to this instance — destroying
+            // it here would hand every later cached init() a dead decoder. Non-cached
+            // instances still fully clean up after themselves.
+            if (!this.cache) {
+                this.decoder.destroy();
+            }
+
             this.decoder = null;
         }
 
@@ -800,6 +867,12 @@ class WebBarcodeScanner {
 
         this.stream = null;
         this.track = null;
+
+        if (this.container) {
+            try {
+                this.container.innerHTML = '';
+            } catch (error) { }
+        }
 
         this.log('Scanner stopped');
     }
