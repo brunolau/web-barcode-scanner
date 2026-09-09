@@ -1,6 +1,6 @@
 {
   "name": "web-barcode-scanner",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Browser-based library that aims to help overcome common pitfalls with html5-based barcode scanning.",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -145,6 +145,11 @@ export interface WebBarcodeScannerOptions {
      * discovery cost, every later one costs a single getUserMedia call. The camera cache is
      * dropped automatically when the remembered device fails to open (unplugged, or the
      * permission was revoked), and the full setup path runs again.
+     *
+     * The caches live for the whole page session by default. A surface whose lifetime is
+     * shorter than that (a routed page the user navigates away from) should call
+     * `WebBarcodeScanner.clearCache()` on unmount so the next visit redoes device discovery
+     * instead of trusting state picked in a previous visit.
      */
     cache?: boolean;
 

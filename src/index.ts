@@ -911,6 +911,30 @@ class WebBarcodeScanner {
     public getSupportedFormats(): BarcodeFormat[] {
         return [...this.formats];
     }
+
+    /**
+     * Clears the module-level caches backing the `cache: true` option: the remembered
+     * camera selection is dropped and the cached decoder is destroyed. A no-op when
+     * nothing is cached (the `cache` option was never used, or the caches were already
+     * cleared).
+     *
+     * Call this when the SURFACE driving the scanner goes away (its page/component
+     * unmounts): within one visit the cache keeps relaunches cheap, but the camera set
+     * and the permission can change between visits, so the next init() after this runs
+     * the full discovery path again instead of trusting stale state.
+     */
+    public static clearCache(): void {
+        if (cachedDecoderSlot.decoder != null) {
+            try {
+                cachedDecoderSlot.decoder.destroy();
+            } catch (err) { }
+        }
+
+        cachedDecoderSlot.key = null;
+        cachedDecoderSlot.decoder = null;
+        cachedCameraSelection.deviceId = null;
+        cachedCameraSelection.cameras = [];
+    }
 }
 
 export { WebBarcodeScanner };
